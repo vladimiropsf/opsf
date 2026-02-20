@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: x86-spot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: x86-spot
+  template:
+    metadata:
+      labels:
+        app: x86-spot
+    spec:
+      nodeSelector:
+        node-type: spot-x86
+      tolerations:
+        - key: karpenter.sh/spot
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              memory: 128Mi

@@ -1,0 +1,86 @@
+name: Terraform deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      branch:
+        description: Branch to deploy from
+        required: true
+        type: string
+        default: main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.14.5"
+  WORKING_DIR: terraform
+
+jobs:
+  plan:
+    name: Plan (${{ github.event.inputs.environment }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Init
+        run: terraform init -backend-config=environments/${{ github.event.inputs.environment }}.backend
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Plan
+        run: terraform plan -var-file=environments/${{ github.event.inputs.environment }}.tfvars -var="aws_profile_name=" -no-color -out=tfplan
+
+  apply:
+    name: Apply (${{ github.event.inputs.environment }})
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Init
+        run: terraform init -backend-config=environments/${{ github.event.inputs.environment }}.backend
+
+      - name: Apply
+        run: terraform apply -var-file=environments/${{ github.event.inputs.environment }}.tfvars -var="aws_profile_name=" -auto-approve

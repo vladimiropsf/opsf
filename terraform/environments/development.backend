@@ -1,0 +1,4 @@
+bucket  = "opsf-development-infra-state"
+key     = "eks-platform/development/terraform.tfstate"
+region  = "us-west-2"
+encrypt = true
